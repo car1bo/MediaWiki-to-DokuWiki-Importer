@@ -78,14 +78,15 @@ class MediaWiki2DokuWiki_MediaWiki_Converter
     public function convert(PDO $db)
     {
         $textTable = $db->getAttribute(PDO::ATTR_DRIVER_NAME) == 'pgsql' ? "pagecontent" : "text"; 
-        
         $sql = "SELECT      p.page_title, p.page_namespace, t.old_text
                 FROM        {$this->dbPrefix}page p
-                INNER JOIN  {$this->dbPrefix}revision r ON
-                            p.page_latest = r.rev_id
-                INNER JOIN  {$this->dbPrefix}{$textTable} t ON
-                            r.rev_text_id = t.old_id
-                ORDER BY    p.page_title";
+                INNER JOIN  {$this->dbPrefix}slots s ON
+                            p.page_latest = s.slot_revision_id
+                INNER JOIN {$this->dbPrefix}content c ON
+                            s.slot_content_id = c.content_id
+                INNER JOIN {$this->dbPrefix}{$textTable} t ON
+                            REPLACE (c.content_address, 'tt:', '') = t.old_id
+                ORDER BY p.page_title";
 
         try {
             $statement = $db->prepare($sql);
