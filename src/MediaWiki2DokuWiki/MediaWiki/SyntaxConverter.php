@@ -82,6 +82,7 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
         $record = $this->convertDoubleSlash($record);
         $record = $this->convertBoldItalic($record);
         $record = $this->convertTalks($record);
+        $record = $this->convertHorizontalLines($record);
         $record = $this->convertHtmlEntities($record);
         $record = $this->convertImagesFiles($record);
 
@@ -471,6 +472,26 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
             '/&euro;/'   => '€',
             '/&copy;/'   => '©',
             '/&reg/'     => '®'
+        );
+
+        return preg_replace(
+            array_keys($patterns),
+            array_values($patterns),
+            $record
+        );
+    }
+
+    /**
+     * Convert horizontal lines.
+     *
+     * @param string $record
+     *
+     * @return string
+     */
+    private function convertHorizontalLines($record)
+    {
+        $patterns = array(
+            '/^=+\s*\**<br>\**\s*=+$/'   => '----'
         );
 
         return preg_replace(
