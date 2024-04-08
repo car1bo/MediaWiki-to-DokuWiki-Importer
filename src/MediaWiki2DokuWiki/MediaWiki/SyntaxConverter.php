@@ -410,6 +410,7 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
      * DokuWiki it's six equal marks. This creates a problem since the first
      * replaced string of two marks will be caught by the last search string
      * also of two marks, resulting in eight total equal marks.
+     * Mediawiki also allows a single mark, so treat that case as two.
      *
      * @param string $record
      *
@@ -422,7 +423,8 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
             '/^=====(.+)=====\s*$/m'   => '===\1===',
             '/^====(.+)====\s*$/m'     => '====\1====',
             '/^===(.+)===\s*$/m'       => '=====\1=====',
-            '/^==(.+)==\s*$/m'         => '======\1======'
+            '/^==(.+)==\s*$/m'         => '======\1======',
+            '/^=(.+)=\s*$/m'           => '======\1======'
         );
 
         // Insert a unique string to the replacement so that it won't be
