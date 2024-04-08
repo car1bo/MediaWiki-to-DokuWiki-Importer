@@ -84,6 +84,7 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
         $record = $this->convertTalks($record);
         $record = $this->convertHorizontalLines($record);
         $record = $this->convertHtmlEntities($record);
+        $record = $this->convertOtherTags($record);
         $record = $this->convertImagesFiles($record);
 
         if (count($this->codeBlock) > 0) {
@@ -494,6 +495,28 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
     {
         $patterns = array(
             '/^=+\s*\**<br>\**\s*=+$/'   => '----'
+        );
+
+        return preg_replace(
+            array_keys($patterns),
+            array_values($patterns),
+            $record
+        );
+    }
+
+    /**
+     * Convert other tags.
+     *
+     * @param string $record
+     *
+     * @return string
+     */
+    private function convertOtherTags($record)
+    {
+        $patterns = array(
+            '/<br>/'        => '\r\n',
+            '/<nowiki>/'    => '<nowiki>'
+            '/<\/nowiki>/'  => '</nowiki>'
         );
 
         return preg_replace(
