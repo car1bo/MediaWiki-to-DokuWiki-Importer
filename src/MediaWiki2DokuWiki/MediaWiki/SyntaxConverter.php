@@ -82,6 +82,7 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
         $record = $this->convertDoubleSlash($record);
         $record = $this->convertBoldItalic($record);
         $record = $this->convertTalks($record);
+        $record = $this->convertHtmlEntities($record);
         $record = $this->convertImagesFiles($record);
 
         if (count($this->codeBlock) > 0) {
@@ -445,6 +446,38 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
 
         // Strip out the unique strings.
         return str_replace($this->placeholder, '', $convertedRecord);
+    }
+
+    /**
+     * Convert html character entities.
+     * See https://www.w3schools.com/html/html_entities.asp
+     *
+     * @param string $record
+     *
+     * @return string
+     */
+    private function convertHtmlEntities($record)
+    {
+        $patterns = array(
+            '/&nbsp;/'   => ' ',
+            '/&lt;/'     => '<',
+            '/&gt;/'     => '>',
+            '/&amp;/'    => '&',
+            '/&quot;/'   => '"',
+            '/&apos;/'   => '\'',
+            '/&cent;/'   => '¢',
+            '/&pound;/'  => '£',
+            '/&yen;/'    => '¥',
+            '/&euro;/'   => '€',
+            '/&copy;/'   => '©',
+            '/&reg/'     => '®'
+        );
+
+        return preg_replace(
+            array_keys($patterns),
+            array_values($patterns),
+            $record
+        );
     }
 }
 
