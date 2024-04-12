@@ -75,16 +75,19 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
     public function convert()
     {
         $record = $this->convertCodeBlocks($this->record);
-        $record = $this->convertHeadings($record);
+        //$record = $this->convertHeadings($record);
         $record = $this->convertList($record);
         $record = $this->convertUrlText($record);
         $record = $this->convertLink($record);
         $record = $this->convertDoubleSlash($record);
         $record = $this->convertBoldItalic($record);
         $record = $this->convertTalks($record);
+        
         $record = $this->convertHorizontalLines($record);
         $record = $this->convertHtmlEntities($record);
+        $record = $this->convertTables($record);
         $record = $this->convertOtherTags($record);
+        
         $record = $this->convertImagesFiles($record);
 
         if (count($this->codeBlock) > 0) {
@@ -115,13 +118,6 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
         );
     }
 
-    /**
-     * Code blocks.
-     *
-     * @param string $record
-     *
-     * @return string
-     */
     private function convertCodeBlocks($record)
     {
         $patterns = array(
@@ -140,29 +136,25 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
             $record
         );
 
-        return preg_replace_callback(
+        $pattern = array(
             '@<pre>(.*?)?</pre>@s',
-            array($this, 'storeCodeBlock'),
+            '@<nowiki>(.*?)?</nowiki>@s'
+        );
+
+        $result = preg_replace_callback(
+            //'@<pre>(.*?)?</pre>@s',
+            $pattern,
+            function ($code)
+            {
+                array_push($this->codeBlock, $code[1]);
+                $replace = $this->placeholder . (count($this->codeBlock) - 1) . '@@';                
+                $convertedLine ='<code>' . $replace . '</code>';
+                return $convertedLine;
+            },
             $result
         );
-    }
 
-    /**
-     * Replace content in PRE tag with placeholder. This is done so no more
-     * conversions are performed with the contents. The last thing this class
-     * will do is replace those placeholders with their original content.
-     *
-     * @param string[] $matches Contents of PRE tag in second element.
-     *
-     * @return string CODE tag with placeholder in content.
-     */
-    private function storeCodeBlock($code)
-    {
-        $this->codeBlock[] = $code[1];
-
-        $replace = $this->placeholder . (count($this->codeBlock) - 1) . '@@';
-
-        return "<code>$replace</code>";
+        return $result;
     }
 
     /**
@@ -174,9 +166,11 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
      */
     private function replaceStoredCodeBlocks($record)
     {
-        for ($i = 0, $numBlocks = count($this->codeBlock); $i < $numBlocks; $i++) {
+        for ($i = 0; $i < count($this->codeBlock); $i++) {
+            
+            $placeholderValue = $this->placeholder . $i . '@@';
             $record = str_replace(
-                $this->placeholder . $i . '@@',
+                $placeholderValue,
                 $this->codeBlock[$i],
                 $record
             );
@@ -411,7 +405,6 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
      * DokuWiki it's six equal marks. This creates a problem since the first
      * replaced string of two marks will be caught by the last search string
      * also of two marks, resulting in eight total equal marks.
-     * Mediawiki also allows a single mark, so treat that case as two.
      *
      * @param string $record
      *
@@ -424,8 +417,7 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
             '/^=====(.+)=====\s*$/m'   => '===\1===',
             '/^====(.+)====\s*$/m'     => '====\1====',
             '/^===(.+)===\s*$/m'       => '=====\1=====',
-            '/^==(.+)==\s*$/m'         => '======\1======',
-            '/^=(.+)=\s*$/m'           => '======\1======'
+            '/^==(.+)==\s*$/m'         => '======\1======'
         );
 
         // Insert a unique string to the replacement so that it won't be
@@ -494,7 +486,7 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
     private function convertHorizontalLines($record)
     {
         $patterns = array(
-            '/^=+\s*\**<br>\**\s*=+$/'   => '----'
+            '/^=+\s*\**<br>\**\s*=+/'   => '----'
         );
 
         return preg_replace(
@@ -514,14 +506,94 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
     private function convertOtherTags($record)
     {
         $patterns = array(
-            '/<br>/'        => '\r\n',
-            '/<nowiki>/'    => '<nowiki>'
-            '/<\/nowiki>/'  => '</nowiki>'
+            '/<br>/'        => "\r\n",
+            '/<nowiki>/'    => '<code>',
+            '/<\/nowiki>/'  => '</code>',
+            '/<pre>/'       => '<code>',
+            '/<\/pre>/'     => '</code>'
         );
 
         return preg_replace(
             array_keys($patterns),
             array_values($patterns),
+            $record
+        );
+    }
+ 
+    private function convertTables($record)
+    {
+        return preg_replace_callback(
+            '/\{\|.*class=".*wikitable.*".*\n((.|\n)*?)\|}/',
+            function ($matches) {
+
+                $data = $matches[1];
+                $lines = preg_split('/\r\n|\r|\n/', $data);
+                $result = "";
+                $mode = 'beforeHeader';
+                foreach ($lines as $line) {
+                    
+                    // |- line separators
+                    if(preg_match('/\|-/',$line)) {
+                        // no need to handle additional lines
+                        if ( $mode == 'beforeHeader') { 
+                            continue; 
+                        }
+                        // record separator
+                        elseif ( $mode == 'header') {
+                            $result.= " ^\n" ;
+                            $mode = 'data';
+                            continue;
+                        }
+                        // record separator
+                        else {
+                            $result.= " |\n" ;
+                            continue;
+                        }
+                    }
+                    
+                    // ! <value> for headings
+                    if(preg_match('/^!\s*.*/',$line)) {
+                        // if first heading found, switch mode
+                        if ( $mode == 'beforeHeader') { 
+                            $mode = 'header'; }
+                            
+                        if ( $mode == 'header') {
+                            $result = $result . '^ ' . preg_replace('/^!\s*/', '', $line) . ' ';
+                        }
+               
+                    }
+                    
+                    // add data lines
+                    if ( $mode == 'data' )
+                    {
+                        if ( preg_match('/^\s*$/', $line) ) {
+                            continue;
+                        }
+                        else {
+                            // clean data lines
+                            $patterns = array(
+                                '/<br>/'        => '',
+                                '/<strike>/'    => '<del>',
+                                '/<\/strike>/'  => '</del>',
+                                '/<b>/'         => '**',
+                                '/<\/b>/'       => '**',
+                                '/<u>/'         => '',
+                                '/<\/u>/'       => ''
+                            );
+                    
+                            $dataline = preg_replace(
+                                array_keys($patterns),
+                                array_values($patterns),
+                                $line
+                            );
+
+                            $result = $result . $dataline . ' ';
+                        }
+                    }
+                    
+                }
+                return $result;
+            },
             $record
         );
     }
