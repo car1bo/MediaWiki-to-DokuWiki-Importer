@@ -530,10 +530,15 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
                 $lines = preg_split('/\r\n|\r|\n/', $data);
                 $result = "";
                 $mode = 'beforeHeader';
-                foreach ($lines as $line) {
-                    
-                    // |- line separators
-                    if(preg_match('/\|-/',$line)) {
+                foreach ($lines as $line) {                  
+                    $thisLine = $line;
+                            if( $mode == 'beforeHeader' || $mode == 'header' ) {
+                    //$thisLine = preg_replace('/^\|+\'*/', '! ', $thisLine);
+                    //$thisLine = preg_replace('/\'*$/', '', $thisLine);
+                    } 
+
+		            // |- line separators
+                    if(preg_match('/\|-/',$thisLine)) {
                         // no need to handle additional lines
                         if ( $mode == 'beforeHeader') { 
                             continue; 
@@ -552,13 +557,13 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
                     }
                     
                     // ! <value> for headings
-                    if(preg_match('/^!\s*.*/',$line)) {
+                    if(preg_match('/^!\s*.*/',$thisLine)) {
                         // if first heading found, switch mode
                         if ( $mode == 'beforeHeader') { 
                             $mode = 'header'; }
                             
                         if ( $mode == 'header') {
-                            $result = $result . '^ ' . preg_replace('/^!\s*/', '', $line) . ' ';
+                            $result = $result . '^ ' . preg_replace('/^!\s*/', '', $thisLine) . ' ';
                         }
                
                     }
@@ -566,7 +571,7 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
                     // add data lines
                     if ( $mode == 'data' )
                     {
-                        if ( preg_match('/^\s*$/', $line) ) {
+                        if ( preg_match('/^\s*$/', $thisLine) ) {
                             continue;
                         }
                         else {
@@ -576,7 +581,7 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
                                 '/<strike>/'    => '<del>',
                                 '/<\/strike>/'  => '</del>',
                                 '/<b>/'         => '**',
-                                '/<\/b>/'       => '**',
+				                '/<\/b>/'       => '**',
                                 '/<u>/'         => '',
                                 '/<\/u>/'       => ''
                             );
@@ -584,7 +589,7 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
                             $dataline = preg_replace(
                                 array_keys($patterns),
                                 array_values($patterns),
-                                $line
+                                $thisLine
                             );
 
                             $result = $result . $dataline . ' ';
