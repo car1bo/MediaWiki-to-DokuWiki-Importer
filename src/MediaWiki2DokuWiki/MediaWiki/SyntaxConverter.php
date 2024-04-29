@@ -570,6 +570,8 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
                 $constructedLineString = "";
                 $lines = preg_split('/\r\n|\r|\n/', $data);
                 $headerPresent = false;
+                $columnIndex = 0 # applies to data rows only
+                $rowIndex = 0 # applies to data rows only
                 foreach ($lines as $line) {           
                                 
                     # Determine the type of line we're processing
@@ -736,12 +738,12 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
                             */
                             # A data row can contain multiple cells, so remove the row token | and split on the row delimiter || first
                             $continuation = ltrim($line, "|") == $line;
-                            $headerLine = ltrim($line, "|");
-                            $headerCells = explode("||", $headerLine);
+                            $dataLine = ltrim($line, "|");
+                            $dataCells = explode("||", $dataLine);
 
                             # Now join them back up with the Dokuwiki row separator |
                             $separator = $continuation ? "" : "| ";
-                            foreach ($headerCells as $Cell) {
+                            foreach ($dataCells as $Cell) {
                                 $constructedLineString = $constructedLineString . $separator . $Cell . " " ;
                                 $separator = "| ";
                             }
