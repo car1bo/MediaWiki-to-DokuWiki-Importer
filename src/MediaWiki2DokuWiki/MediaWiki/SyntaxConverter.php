@@ -74,24 +74,46 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
      */
     public function convert()
     {
-        $record = $this->convertCodeBlocks($this->record);
+        $recordtmp = $this->convertCodeBlocks($this->record);
+        if(!($recordtmp === null || trim($recordtmp) === '')) { $record = $recordtmp; }
+
         //$record = $this->convertHeadings($record);
-        $record = $this->convertList($record);
-        $record = $this->convertUrlText($record);
-        $record = $this->convertLink($record);
-        $record = $this->convertDoubleSlash($record);
-        $record = $this->convertBoldItalic($record);
-        $record = $this->convertTalks($record);
+        $recordtmp = $this->convertList($record);
+        if(!($recordtmp === null || trim($recordtmp) === '')) { $record = $recordtmp; }
+
+        $recordtmp = $this->convertUrlText($record);
+        if(!($recordtmp === null || trim($recordtmp) === '')) { $record = $recordtmp; }
+
+        $recordtmp = $this->convertLink($record);
+        if(!($recordtmp === null || trim($recordtmp) === '')) { $record = $recordtmp; }
+
+        $recordtmp = $this->convertDoubleSlash($record);
+        if(!($recordtmp === null || trim($recordtmp) === '')) { $record = $recordtmp; }
+
+        $recordtmp = $this->convertBoldItalic($record);
+        if(!($recordtmp === null || trim($recordtmp) === '')) { $record = $recordtmp; }
+
+        $recordtmp = $this->convertTalks($record);
+        if(!($recordtmp === null || trim($recordtmp) === '')) { $record = $recordtmp; }
         
-        $record = $this->convertHorizontalLines($record);
-        $record = $this->convertHtmlEntities($record);
-        $record = $this->convertTables($record);
-        $record = $this->convertOtherTags($record);
+        $recordtmp = $this->convertHorizontalLines($record);
+        if(!($recordtmp === null || trim($recordtmp) === '')) { $record = $recordtmp; }
+
+        $recordtmp = $this->convertHtmlEntities($record);
+        if(!($recordtmp === null || trim($recordtmp) === '')) { $record = $recordtmp; }
+
+        $recordtmp = $this->convertTables($record);
+        if(!($recordtmp === null || trim($recordtmp) === '')) { $record = $recordtmp; }
+
+        $recordtmp = $this->convertOtherTags($record);
+        if(!($recordtmp === null || trim($recordtmp) === '')) { $record = $recordtmp; }
         
-        $record = $this->convertImagesFiles($record);
+        $recordtmp = $this->convertImagesFiles($record);
+        if(!($recordtmp === null || trim($recordtmp) === '')) { $record = $recordtmp; }
 
         if (count($this->codeBlock) > 0) {
-            $record = $this->replaceStoredCodeBlocks($record);
+            $recordtmp = $this->replaceStoredCodeBlocks($record);
+            if(!($recordtmp === null || trim($recordtmp) === '')) { $record = $recordtmp; }
         }
 
         return $record;
@@ -533,8 +555,8 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
                 foreach ($lines as $line) {                  
                     $thisLine = $line;
                             if( $mode == 'beforeHeader' || $mode == 'header' ) {
-                    //$thisLine = preg_replace('/^\|+\'*/', '! ', $thisLine);
-                    //$thisLine = preg_replace('/\'*$/', '', $thisLine);
+                            //$thisLine = preg_replace('/^\|+\'*/', '! ', $thisLine);
+                            //$thisLine = preg_replace('/\'*$/', '', $thisLine);
                     } 
 
 		            // |- line separators
@@ -577,7 +599,7 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
                         else {
                             // clean data lines
                             $patterns = array(
-                                '/<br>/'        => '',
+                                '/<br>/'        => '\\\\ ',
                                 '/<strike>/'    => '<del>',
                                 '/<\/strike>/'  => '</del>',
                                 '/<b>/'         => '**',
