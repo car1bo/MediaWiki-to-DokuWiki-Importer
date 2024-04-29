@@ -529,6 +529,8 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
     {
         $patterns = array(
             '/<br>/'        => "\r\n",
+            '/<br \/>/'     => "\r\n",
+            '/<br\/>/'      => "\r\n",
             '/<nowiki>/'    => '<code>',
             '/<\/nowiki>/'  => '</code>',
             '/<pre>/'       => '<code>',
@@ -545,61 +547,117 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
     private function convertTables($record)
     {
         return preg_replace_callback(
-            '/\{\|.*class=".*wikitable.*".*\n((.|\n)*?)\|}/',
+            '/(\{\|.*\n((.*|\n)*?)\|\})/',
             function ($matches) {
 
                 $data = $matches[1];
-                $lines = preg_split('/\r\n|\r|\n/', $data);
-                $result = "";
-                $mode = 'beforeHeader';
-                foreach ($lines as $line) {                  
-                    $thisLine = $line;
-                            if( $mode == 'beforeHeader' || $mode == 'header' ) {
-                            //$thisLine = preg_replace('/^\|+\'*/', '! ', $thisLine);
-                            //$thisLine = preg_replace('/\'*$/', '', $thisLine);
-                    } 
+                /*
+                MediaWiki2DokuWiki_Environment::out(
+                    PHP_EOL . '=====matched===== ' . $data,
+                    false
+                );
+                */
+                # https://www.mediawiki.org/wiki/Help:Tables
+                # {|	table start, required
+                # |+	table caption, optional; only between table start and table row
+                # |-	table row, optional on first row—wiki engine assumes the first row
+                # !	    table header cell, optional. Consecutive table header cells may be added on same line separated by double marks (!!) or start on new lines, each with its own single mark (!).
+                # |	    table data cell, optional. Consecutive table data cells may be added on same line separated by double marks (||) or start on new lines, each with its own single mark (|).
+                # |}	table end, required
 
-		            // |- line separators
-                    if(preg_match('/\|-/',$thisLine)) {
-                        // no need to handle additional lines
-                        if ( $mode == 'beforeHeader') { 
+                $section = "tableStart";
+                $result = "";
+                $constructedLineString = "";
+                $lines = preg_split('/\r\n|\r|\n/', $data);
+                $headerPresent = false;
+                foreach ($lines as $line) {           
+                                
+                    # Determine the type of line we're processing
+                    $tableStart = preg_match('/^\{\|/', $line);
+                    $caption = preg_match('/^\|\+/', $line);
+                    $tableRow = preg_match('/^\|\-/', $line);
+                    $headerCell = preg_match('/^\!/', $line);
+                    $tableEnd = preg_match('/^\|\}/', $line);
+                    $dataCell = (preg_match('/^\|/', $line) && !($tableStart || $tableEnd || $caption || $tableRow || $headerCell));
+                    $dataRow = !($tableStart || $tableEnd || $caption || $tableRow || $headerCell);
+                    $rowDelimiter = $tableRow || $tableEnd;
+                    /*
+                    MediaWiki2DokuWiki_Environment::out(
+                        PHP_EOL . 'processing line ' . $line,
+                        false
+                    );
+                    MediaWiki2DokuWiki_Environment::out(
+                        PHP_EOL . '    tableStart-' . $tableStart . ' caption-' . $caption . ' tableRow-' . $tableRow . ' headerCell-' . $headerCell . ' tableEnd-' . $tableEnd . ' dataCell-' . $dataCell,
+                        false
+                    );
+                    */
+                    # Start of table
+                    if ($tableStart) {
+                        # Nested tables not supported, abort!
+                        if ($section != "tableStart") { return $data; }
+                        /*
+                        MediaWiki2DokuWiki_Environment::out(
+                            PHP_EOL . '    Detected Table Start' . $line,
+                            false
+                        );
+                        */
+                        # Disregard the table start, it has nothing useful for dokuwiki, so move to next phase.
+                        $section = "expectHeader";
+                        continue;
+                    }
+
+                    # Captions are unsupported in Dokuwiki, ignore if found
+                    if ($caption) {
+                        /*
+                        MediaWiki2DokuWiki_Environment::out(
+                            PHP_EOL . '    Detected caption' . $line,
+                            false
+                        );
+                        */
+                        continue;
+                    }
+
+                    # Headers are optional, so check if they are present before processing
+                    if ($section == "expectHeader") {
+                        if ($headerCell) {
+                            $section = "header";
+                            /*
+                            MediaWiki2DokuWiki_Environment::out(
+                                PHP_EOL . '    found header start at line ' . $line,
+                                false
+                            );
+                            */
+                        } elseif ($tableEnd) {
+                            # If we see a table end straight after a table start, ignore the table entirely as it is empty.
+                            return $result; 
+                        } elseif ($tableRow) {
+                            # If we see a row marker |- directly after a table start, ignore it
                             continue; 
-                        }
-                        // record separator
-                        elseif ( $mode == 'header') {
-                            $result.= " ^\n" ;
-                            $mode = 'data';
-                            continue;
-                        }
-                        // record separator
-                        else {
-                            $result.= " |\n" ;
-                            continue;
+                        } else {
+                            $section = "rows";
+                            /*
+                            MediaWiki2DokuWiki_Environment::out(
+                                PHP_EOL . '    No header start found, starting row processing',
+                                false
+                            );
+                            */
                         }
                     }
-                    
-                    // ! <value> for headings
-                    if(preg_match('/^!\s*.*/',$thisLine)) {
-                        // if first heading found, switch mode
-                        if ( $mode == 'beforeHeader') { 
-                            $mode = 'header'; }
-                            
-                        if ( $mode == 'header') {
-                            $result = $result . '^ ' . preg_replace('/^!\s*/', '', $thisLine) . ' ';
-                        }
-               
-                    }
-                    
-                    // add data lines
-                    if ( $mode == 'data' )
-                    {
-                        if ( preg_match('/^\s*$/', $thisLine) ) {
-                            continue;
-                        }
-                        else {
+
+                    if ($section == "header") {
+                        if ($tableRow) {
+                            /*
+                            MediaWiki2DokuWiki_Environment::out(
+                                PHP_EOL . '    found row delimiter, string output- ' . $constructedLineString,
+                                false
+                            );
+                            */
+
                             // clean data lines
                             $patterns = array(
                                 '/<br>/'        => '\\\\ ',
+                                '/<br \/>/'     => "\\\\",
+                                '/<br\/>/'      => "\\\\",
                                 '/<strike>/'    => '<del>',
                                 '/<\/strike>/'  => '</del>',
                                 '/<b>/'         => '**',
@@ -608,17 +666,94 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
                                 '/<\/u>/'       => ''
                             );
                     
-                            $dataline = preg_replace(
+                            $constructedLineString = preg_replace(
                                 array_keys($patterns),
                                 array_values($patterns),
-                                $thisLine
+                                $constructedLineString
                             );
 
-                            $result = $result . $dataline . ' ';
+                            # A table row token |- marks the end of header section,
+                            # so add the header line to the result with the trailing column separator
+                            $result = $result . "^ " . $constructedLineString . PHP_EOL;
+                            $constructedLineString = "";
+                            $section = "rows";
+                            continue;
+                        }
+                        elseif ($headerCell) {
+                            # A header row can contain multiple cells, so remove the header token ! and split on the header delimiter !! first
+                            $headerLine = ltrim($line, "!");
+                            $headerCells = explode("!!", $headerLine);
+
+                            # Now join them back up with the Dokuwiki header separator ^
+                            foreach ($headerCells as $Cell) {
+                                $constructedLineString = $constructedLineString . $Cell . " ^ ";
+                            }
+                        } elseif ($tableEnd) {
+                            # If we see a table end within a header, ignore the table entirely as it is empty.
+                            return $result; 
                         }
                     }
+
+                    if ($section == "rows") {
+                        if ($rowDelimiter) {
+                            /*
+                            MediaWiki2DokuWiki_Environment::out(
+                                PHP_EOL . '    found row delimiter, string output- ' . $constructedLineString,
+                                false
+                            );
+                            */
+                            // clean data lines
+                            $patterns = array(
+                                '/<br>/'        => '\\\\ ',
+                                '/<br \/>/'     => "\\\\",
+                                '/<br\/>/'      => "\\\\",
+                                '/<strike>/'    => '<del>',
+                                '/<\/strike>/'  => '</del>',
+                                '/<b>/'         => '**',
+				                '/<\/b>/'       => '**',
+                                '/<u>/'         => '',
+                                '/<\/u>/'       => ''
+                            );
                     
+                            $constructedLineString = preg_replace(
+                                array_keys($patterns),
+                                array_values($patterns),
+                                $constructedLineString
+                            );
+                            
+                            # A table row token |- marks the end of a row,
+                            # and a table end token |} marks the end of the table.
+                            # Add the row to the result with the trailing column separator
+                            $result = $result . $constructedLineString . "| " . PHP_EOL;
+                            $constructedLineString = "";
+                        }
+                        elseif ($dataRow) {
+                            /*
+                            MediaWiki2DokuWiki_Environment::out(
+                                PHP_EOL . '    found data row ' . $line,
+                                false
+                            );
+                            */
+                            # A data row can contain multiple cells, so remove the row token | and split on the row delimiter || first
+                            $continuation = ltrim($line, "|") == $line;
+                            $headerLine = ltrim($line, "|");
+                            $headerCells = explode("||", $headerLine);
+
+                            # Now join them back up with the Dokuwiki row separator |
+                            $separator = $continuation ? "" : "| ";
+                            foreach ($headerCells as $Cell) {
+                                $constructedLineString = $constructedLineString . $separator . $Cell . " " ;
+                                $separator = "| ";
+                            }
+                        } 
+                    }
                 }
+                /*
+                MediaWiki2DokuWiki_Environment::out(
+                    PHP_EOL . '--Converted Table-- ' . PHP_EOL . $result . PHP_EOL,
+                    false
+                );
+                */
                 return $result;
             },
             $record
