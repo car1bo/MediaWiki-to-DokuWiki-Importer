@@ -570,8 +570,8 @@ class MediaWiki2DokuWiki_MediaWiki_SyntaxConverter
                 $constructedLineString = "";
                 $lines = preg_split('/\r\n|\r|\n/', $data);
                 $headerPresent = false;
-                $columnIndex = 0 # applies to data rows only
-                $rowIndex = 0 # applies to data rows only
+                $columnIndex = 0; # applies to data rows only
+                $rowIndex = 0; # applies to data rows only
                 foreach ($lines as $line) {           
                                 
                     # Determine the type of line we're processing
